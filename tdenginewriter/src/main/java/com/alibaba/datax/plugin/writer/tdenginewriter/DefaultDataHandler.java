@@ -10,6 +10,7 @@ import com.taosdata.jdbc.SchemalessWriter;
 import com.taosdata.jdbc.enums.SchemalessProtocolType;
 import com.taosdata.jdbc.enums.SchemalessTimestampType;
 import com.taosdata.jdbc.utils.Utils;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -179,52 +180,43 @@ public class DefaultDataHandler implements DataHandler {
 
         StringBuilder sb = new StringBuilder("insert into");
         for (Record record : recordBatch) {
-            sb.append(" ").append(record.getColumn(indexOf("tbname")).asString())
+            sb.append(" ").append("t").append(record.getColumn(indexOf("tbname")).asString())
                     .append(" using ").append(table)
                     .append(" tags");
-//            sb.append(columnMetas.stream().filter(colMeta -> columns.contains(colMeta.field)).filter(colMeta -> {
-//                return colMeta.isTag;
-//            }).map(colMeta -> {
-//                return buildColumnValue(colMeta, record);
-//            }).collect(Collectors.joining(",", "(", ")")));
             sb.append("(");
-            for (int i = 0; i < columns.size(); i++) {
-                ColumnMeta colMeta = columnMetas.get(i);
+            boolean isTagFirst = true;
+            for (int i = 1; i < columns.size(); i++) {
+                ColumnMeta colMeta = columnMetas.get(i - 1);
                 if (!columns.contains(colMeta.field))
                     continue;
                 if (!colMeta.isTag)
                     continue;
                 String tagValue = buildColumnValue(colMeta, record);
-                if (i == 0) {
+                if (isTagFirst) {
                     sb.append(tagValue);
+                    isTagFirst = false;
                 } else {
                     sb.append(",").append(tagValue);
                 }
             }
             sb.append(")");
 
-            sb.append(" ").append(columnMetas.stream().filter(colMeta -> columns.contains(colMeta.field)).filter(colMeta -> {
-                        return !colMeta.isTag;
-                    }).map(colMeta -> {
-                        return colMeta.field;
-                    }).collect(Collectors.joining(",", "(", ")")))
-                    .append(" values");
+            sb.append(" values");
 
-//            sb.append(columnMetas.stream().filter(colMeta -> columns.contains(colMeta.field)).filter(colMeta -> {
-//                return !colMeta.isTag;
-//            }).map(colMeta -> {
-//                return buildColumnValue(colMeta, record);
-//            }).collect(Collectors.joining(",", "(", ")")));
             sb.append("(");
-            for (int i = 0; i < columnMetas.size(); i++) {
-                ColumnMeta colMeta = columnMetas.get(i);
-                if (!columns.contains(colMeta.field))
+            boolean isValueFirst = true;
+            for (int i = 1; i < columnMetas.size(); i++) {
+                ColumnMeta colMeta = columnMetas.get(i - 1);
+                if (!columns.contains(colMeta.field)) {
                     continue;
-                if (colMeta.isTag)
+                }
+                if (colMeta.isTag) {
                     continue;
+                }
                 String colValue = buildColumnValue(colMeta, record);
-                if (i == 0) {
+                if (isValueFirst) {
                     sb.append(colValue);
+                    isValueFirst = false;
                 } else {
                     sb.append(",").append(colValue);
                 }
@@ -268,6 +260,9 @@ public class DefaultDataHandler implements DataHandler {
                 if (colMeta.type.equals("TIMESTAMP"))
                     return "\"" + column.asString() + "\"";
                 String value = column.asString();
+                if (StringUtils.isEmpty(value)) {
+                    return "NULL";
+                }
                 return "\'" + Utils.escapeSingleQuota(value) + "\'";
             case NULL:
             case BAD:
@@ -276,9 +271,12 @@ public class DefaultDataHandler implements DataHandler {
             case DOUBLE:
             case INT:
             case LONG:
-                column.asString();
+                if (StringUtils.isEmpty(column.asString())) {
+                    return "NULL";
+                }
+                return column.asString();
             default:
-                throw new Exception("invalid column type: " + type);
+                throw new Exception("invalid column type: " + type + " " + colMeta.field);
         }
     }
 
@@ -408,6 +406,9 @@ public class DefaultDataHandler implements DataHandler {
                 if (colMeta.type.equals("TIMESTAMP"))
                     return column.asString() + "i64";
                 String value = column.asString();
+                if (StringUtils.isEmpty(value)) {
+                    return "NULL";
+                }
                 value = value.replace("\"", "\\\"");
                 if (colMeta.type.startsWith("BINARY"))
                     return "\"" + value + "\"";
@@ -436,7 +437,7 @@ public class DefaultDataHandler implements DataHandler {
                 }).map(colMeta -> {
                     return colMeta.field;
                 }).collect(Collectors.joining(",", "(", ")")))
-                .append(" values");
+                .append(" values ");
         int validRecords = 0;
         for (Record record : recordBatch) {
             if (columns.contains("tbname") && !table.equals(record.getColumn(indexOf("tbname")).asString()))
