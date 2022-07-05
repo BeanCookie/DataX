@@ -228,14 +228,11 @@ public class DefaultDataHandler implements DataHandler {
         return executeUpdate(conn, sql);
     }
 
-    private int executeUpdate(Connection conn, String sql) {
-        int count = 0;
-        try (Statement stmt = conn.createStatement()) {
-            LOG.debug(">>> " + sql);
-            count = stmt.executeUpdate(sql);
-        } catch (SQLException e) {
-            LOG.warn("executeUpdate error. because: {} {}", sql, e.getMessage());
-        }
+    private int executeUpdate(Connection conn, String sql) throws SQLException {
+        int count;
+        Statement stmt = conn.createStatement();
+        LOG.debug(">>> " + sql);
+        count = stmt.executeUpdate(sql);
         return count;
     }
 

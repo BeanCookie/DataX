@@ -85,6 +85,7 @@ public class MongoDBReader extends Reader {
         private String authDb = null;
         private String database = null;
         private String collection = null;
+        private Integer skipCount = null;
 
         private String query = null;
 
@@ -120,7 +121,7 @@ public class MongoDBReader extends Reader {
                 Document queryFilter = Document.parse(query);
                 filter = new Document("$and", Arrays.asList(filter, queryFilter));
             }
-            dbCursor = col.find(filter).iterator();
+            dbCursor = col.find(filter).skip(this.skipCount).iterator();
             while (dbCursor.hasNext()) {
                 Document item = dbCursor.next();
                 Record record = recordSender.createRecord();
@@ -197,6 +198,7 @@ public class MongoDBReader extends Reader {
 
             this.collection = readerSliceConfig.getString(KeyConstant.MONGO_COLLECTION_NAME);
             this.query = readerSliceConfig.getString(KeyConstant.MONGO_QUERY);
+            this.skipCount = readerSliceConfig.getInt(KeyConstant.SKIP_COUNT);
             this.mongodbColumnMeta = JSON.parseArray(readerSliceConfig.getString(KeyConstant.MONGO_COLUMN));
             this.lowerBound = readerSliceConfig.get(KeyConstant.LOWER_BOUND);
             this.upperBound = readerSliceConfig.get(KeyConstant.UPPER_BOUND);
