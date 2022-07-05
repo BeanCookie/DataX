@@ -198,7 +198,7 @@ public class MongoDBReader extends Reader {
 
             this.collection = readerSliceConfig.getString(KeyConstant.MONGO_COLLECTION_NAME);
             this.query = readerSliceConfig.getString(KeyConstant.MONGO_QUERY);
-            this.skipCount = readerSliceConfig.getInt(KeyConstant.SKIP_COUNT);
+            this.skipCount = readerSliceConfig.getInt(KeyConstant.SKIP_COUNT, 0);
             this.mongodbColumnMeta = JSON.parseArray(readerSliceConfig.getString(KeyConstant.MONGO_COLUMN));
             this.lowerBound = readerSliceConfig.get(KeyConstant.LOWER_BOUND);
             this.upperBound = readerSliceConfig.get(KeyConstant.UPPER_BOUND);
