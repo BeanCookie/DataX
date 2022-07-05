@@ -228,11 +228,13 @@ public class DefaultDataHandler implements DataHandler {
         return executeUpdate(conn, sql);
     }
 
-    private int executeUpdate(Connection conn, String sql) throws SQLException {
-        int count;
+    private int executeUpdate(Connection conn, String sql) {
+        int count = 0;
         try (Statement stmt = conn.createStatement()) {
             LOG.debug(">>> " + sql);
             count = stmt.executeUpdate(sql);
+        } catch (SQLException e) {
+            LOG.warn("executeUpdate error. because: {} {}", sql, e.getMessage());
         }
         return count;
     }
@@ -263,7 +265,7 @@ public class DefaultDataHandler implements DataHandler {
                 if (StringUtils.isEmpty(value)) {
                     return "NULL";
                 }
-                return "\'" + Utils.escapeSingleQuota(value) + "\'";
+                return "\"" + Utils.escapeSingleQuota(value) + "\"";
             case NULL:
             case BAD:
                 return "NULL";
@@ -295,21 +297,14 @@ public class DefaultDataHandler implements DataHandler {
         for (Record record : recordBatch) {
             StringBuilder sb = new StringBuilder();
             sb.append(table).append(",")
-                    .append(columnMetaList.stream().filter(colMeta -> columns.contains(colMeta.field)).filter(colMeta -> {
-                        return colMeta.isTag;
-                    }).map(colMeta -> {
+                    .append(columnMetaList.stream().filter(colMeta -> columns.contains(colMeta.field)).filter(colMeta -> colMeta.isTag).map(colMeta -> {
                         String value = record.getColumn(indexOf(colMeta.field)).asString();
                         if (value.contains(" "))
                             value = value.replace(" ", "\\ ");
                         return colMeta.field + "=" + value;
                     }).collect(Collectors.joining(",")))
                     .append(" ")
-                    .append(columnMetaList.stream().filter(colMeta -> columns.contains(colMeta.field)).filter(colMeta -> {
-                        return !colMeta.isTag && !colMeta.isPrimaryKey;
-                    }).map(colMeta -> {
-                        return colMeta.field + "=" + buildSchemalessColumnValue(colMeta, record);
-//                        return colMeta.field + "=" + record.getColumn(indexOf(colMeta.field)).asString();
-                    }).collect(Collectors.joining(",")))
+                    .append(columnMetaList.stream().filter(colMeta -> columns.contains(colMeta.field)).filter(colMeta -> !colMeta.isTag && !colMeta.isPrimaryKey).map(colMeta -> colMeta.field + "=" + buildSchemalessColumnValue(colMeta, record)).collect(Collectors.joining(",")))
                     .append(" ");
             // timestamp
             Column column = record.getColumn(indexOf(ts.field));
@@ -454,11 +449,6 @@ public class DefaultDataHandler implements DataHandler {
             if (ignoreTagsUnmatched && !tagsAllMatch)
                 continue;
 
-//            sb.append(columnMetas.stream().filter(colMeta -> columns.contains(colMeta.field)).filter(colMeta -> {
-//                return !colMeta.isTag;
-//            }).map(colMeta -> {
-//                return buildColumnValue(colMeta, record);
-//            }).collect(Collectors.joining(", ", "(", ") ")));
             sb.append("(");
             for (int i = 0; i < columnMetas.size(); i++) {
                 ColumnMeta colMeta = columnMetas.get(i);
@@ -517,15 +507,10 @@ public class DefaultDataHandler implements DataHandler {
         StringBuilder sb = new StringBuilder();
         sb.append("insert into ").append(table)
                 .append(" ")
-                .append(columnMetas.stream().filter(colMeta -> columns.contains(colMeta.field)).map(colMeta -> {
-                    return colMeta.field;
-                }).collect(Collectors.joining(",", "(", ")")))
+                .append(columnMetas.stream().filter(colMeta -> columns.contains(colMeta.field)).map(colMeta -> colMeta.field).collect(Collectors.joining(",", "(", ")")))
                 .append(" values ");
 
         for (Record record : recordBatch) {
-//            sb.append(columnMetas.stream().filter(colMeta -> columns.contains(colMeta.field)).map(colMeta -> {
-//                return buildColumnValue(colMeta, record);
-//            }).collect(Collectors.joining(",", "(", ")")));
             sb.append("(");
             for (int i = 0; i < columnMetas.size(); i++) {
                 ColumnMeta colMeta = columnMetas.get(i);
